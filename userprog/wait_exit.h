@@ -1,0 +1,6 @@
+#ifndef __USERPROG_WAIT_EXIT_H
+#define __USERPROG_WAIT_EXIT_H
+
+
+
+#endif // !__USERPROG_WAIT_EXIT_H

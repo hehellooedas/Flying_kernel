@@ -1,0 +1,16 @@
+{
+    "clangd.path": "/usr/bin/clangd",
+    "clangd.arguments": [
+        "--log=error",
+        "--background-index",
+        "--header-insertion=never",
+        "--query-driver=/usr/bin/gcc*",
+        "--clang-tidy"
+    ],
+    "C_Cpp.errorSquiggles": "disabled",
+    "editor.detectIndentation": false,  //关闭检测第一个tab后面就tab
+    "editor.renderControlCharacters": true, //制表符显示->
+    "editor.renderWhitespace": "all", //空格显示...
+    "editor.tabSize": 4,  //tab为四个空格
+    "editor.insertSpaces": true //转为空格
+}
