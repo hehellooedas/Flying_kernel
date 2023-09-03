@@ -65,7 +65,7 @@ align 16
     mov byte [gs:0x1c],'.'
     mov byte [gs:0x1d],0x07
 
-    ;jmp $ 悬停MBR以供调试
+    ;jmp $ ;悬停MBR以供调试
 
     ;把bootloader加载到内存中
     mov eax,LOADER_START_SECTOR ;起始扇区lba地址

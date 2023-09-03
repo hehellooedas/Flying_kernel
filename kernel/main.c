@@ -25,7 +25,7 @@ int __attribute__((noreturn)) main(void)
     /*此时中断并未打开，先把任务放到队列里*/
     
     //process_execute(u_prog_a, "user_prog_a");
-    //process_execute(u_prog_b, "user_prog_b");
+    process_execute(u_prog_b, "user_prog_b");
     thread_start("memory_thread", 31, memory_thread,"memory_thread");
     thread_start("free_thread", 31, free_thread, "free_thread");
 

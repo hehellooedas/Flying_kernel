@@ -1,8 +1,8 @@
-#include "timer.h"
-#include "io.h"
-#include "print.h"
-#include "thread.h"
-#include "debug.h"
+#include <timer.h>
+#include <io.h>
+#include <print.h>
+#include <thread.h>
+#include <debug.h>
 
 
 
@@ -20,21 +20,21 @@
 /*  时钟芯片的设置参数以宏定义的形式给出  */
 
 /*  计数器0相关信息  */
-#define IRQ0_FREQUENCE 100                               //时钟频率
-#define INPUT_FREQUENCE 1193180                          //计数器0的工作脉冲信号频率
-#define COUNTER0_VALUE  INPUT_FREQUENCE / IRQ0_FREQUENCE //计数器0的初始值
-#define COUNTER0_PORT 0x40                               //计数器0的端口号
+#define IRQ0_FREQUENCE  100                               //时钟频率
+#define INPUT_FREQUENCE 1193180                           //计数器0的工作脉冲信号频率
+#define COUNTER0_VALUE  INPUT_FREQUENCE / IRQ0_FREQUENCE  //计数器0的初始值
+#define COUNTER0_PORT   0x40                              //计数器0的端口号
 
 
 /*  往控制器寄存器里写入的相关信息  */
-#define COUNTER_NO 0                                     //代表选择计数器0
-#define COUNTER_MODE 2                                   //工作模式2：比率发生器
-#define READ_WRITE_LATCH 3                               //读写方式
-#define PIT_COUNTER_PORT 0x43                            //控制寄存器的端口
+#define COUNTER_NO       0                             //代表选择计数器0
+#define COUNTER_MODE     2                             //工作模式2：比率发生器
+#define READ_WRITE_LATCH 3                             //读写方式
+#define PIT_COUNTER_PORT 0x43                          //控制寄存器的端口
 
-#define mil_seconds_per_intr (1000 / IRQ0_FREQUENCE)     //每毫秒发生的中断数
+#define mil_seconds_per_intr (1000 / IRQ0_FREQUENCE)   //每毫秒发生的中断数
 
-uint32_t ticks;                                          //自内核开启中断以来总共的ticks数目
+uint32_t ticks;      //自内核开启中断以来总共的ticks数目
 
 
 
@@ -43,9 +43,9 @@ static void frequence_set(uint8_t counter_port, \
                           uint8_t rwl, \
                           uint8_t counter_mode, \
                           uint16_t counter_value){
-    /*先把工作模式等信息写入到控制寄存器里*/
+    /*  先把工作模式等信息写入到控制寄存器里  */
     outb(PIT_COUNTER_PORT,(uint8_t)((counter_no << 6) | (rwl << 4) | (counter_mode << 1)));
-    /*把计数器的初始值写入后,8253就开始工作了*/
+    /*  把计数器的初始值写入后,8253就开始工作了  */
     outb(counter_port,(uint8_t)counter_value); //先写入第8位
     outb(counter_port,(uint8_t)(counter_value >> 8)); //再写入高8位
 }
@@ -78,7 +78,7 @@ void timer_init(void){
 }
 
 
-/*以ticks为单独的sleep,任何时间形式的sleep会转换此ticks形式*/
+/*  以ticks为单独的sleep,任何时间形式的sleep会转换此ticks形式  */
 static void ticks_to_sleep(uint32_t sleep_ticks){
     uint32_t start_tick = ticks;
     while(ticks - start_tick < sleep_ticks){

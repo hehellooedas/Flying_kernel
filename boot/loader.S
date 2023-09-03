@@ -61,8 +61,7 @@ ards_buf times 244 db 0     ;手动对齐
 ards_nr dw 0                ;记录数量
 
 loader_start:
-    ;call show_bootloader    ;输出bootloader提示信息
-    
+
     xor ebx,ebx             ;第一次调用时ebx要设置为0
     mov edx,0x534d4150      ;固定值
     mov di,ards_buf         ;ARDS结构要保存的位置
@@ -404,23 +403,3 @@ rd_disk_m_32:
     loop .go_on_read
     ret
 
-
-show_bootloader:
-    mov ax,0
-    mov ds,ax
-    mov si,.bootloader_message
-
-    mov ax,0x0b800
-    mov es,ax
-    mov di,0
-    
-    mov cx,24
-    cld
-    .print_loop:
-        movsb
-        inc di
-        loop .print_loop
-    mov si,0
-    mov di,0
-    ret
-.bootloader_message db 'bootloader is loading...'

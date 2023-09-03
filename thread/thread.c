@@ -3,7 +3,7 @@
 #include <process.h>
 #include <print.h>
 #include <debug.h>
-#include <process.h>
+#include <string.h>
 
 
 #define PG_SIZE 4096
@@ -68,14 +68,13 @@ static void kernel_thread(thread_func* function,void* func_args){
 
 /*  初始化线程栈thread_stack  */
 void thread_create(task_struct* pthread,thread_func function,void* func_arg){
-    /*预留中断使用栈的空间*/
+    /*  预留中断使用栈的空间  */
     pthread->self_kstack -= sizeof(intr_stack);
-    /*再预留线程使用栈空间*/
+    /*  再预留线程使用栈空间  */
     pthread->self_kstack -= sizeof(thread_stack);
 
-    /*注意以下定义的是线程栈结构,不是pcb*/
-    thread_stack* kthread_stack = (thread_stack*)pthread->self_kstack; //栈的位置已经确定
-    /*  往线程栈中写入数据即可  */
+    /*  把地址指针变成线程栈类型的指针方便写入数据  */
+    thread_stack* kthread_stack = (thread_stack*)pthread->self_kstack;
     kthread_stack->eip = kernel_thread; //eip指向thread_stack
     kthread_stack->function = function; //指向要执行函数的地址
     kthread_stack->func_arg = func_arg; //指向要执行函数的参数的地址
@@ -101,24 +100,23 @@ void init_thread(task_struct* pthread,char* name,uint16_t priority){
     pthread->ticks = priority;
     pthread->elapsed_ticks = 0; //该线程从未运行过
     pthread->pgdir = NULL; //该线程还没有自己的页表
-    /*  self_kstart是线程自己在内核太下使用的栈顶地址  */
+    /*  self_kstart是线程自己在内核态下使用的栈顶地址  */
     pthread->stack_magic = 0x19870916; //自定义魔数
 }
 
 
 /*  创建线程  */
 task_struct* thread_start(char* name,int priority,thread_func function,void* func_arg){
-    /*pcb需要一页的内存空间,位于内核空间;thread指向pcb的最低地址*/
+    /*创建任务的pcb;pcb需要一页的内存空间,位于内核空间*/
     task_struct* thread = get_kernel_pages(1);
     init_thread(thread, name, priority); //先初始化线程
-    thread_create(thread, function, func_arg); //再初始化线程栈 
+    thread_create(thread, function, func_arg); //初始化线程栈
 
-    /*  确保之前不在队列中  */
+    /*  把新任务加入就绪队列  */
     ASSERT(!(elem_find(&thread_ready_list,&thread->general_tag)));
-    /*  加入队列  */
     list_append(&thread_ready_list,&thread->general_tag);
 
-    /*  确保之前不在队列中  */
+    /*  把新任务加入到所有任务队列  */
     ASSERT(!(elem_find(&thread_all_list,&thread->all_list_tag)));
     list_append(&thread_all_list,&thread->all_list_tag);
     return thread;
@@ -164,7 +162,7 @@ void schedule(void){
         */
 
     }
-    /*如果就绪队列是空的,就唤醒idle线程*/
+    /*  如果就绪队列是空的,就唤醒idle线程  */
     if(list_empty(&thread_ready_list)){
         thread_unblock(idle_thread);
     }
@@ -185,7 +183,7 @@ void schedule(void){
 }
 
 
-/*主动让出CPU,换其他线程运行*/
+/*  主动让出CPU,换其他线程运行  */
 void thread_yield(void){
     task_struct* cur = running_thread();
     intr_status old_status = intr_disable();
@@ -194,14 +192,14 @@ void thread_yield(void){
     /*让主动交出运行权的线程(自己)到后面排队*/
     list_append(&thread_ready_list, &cur->general_tag);
     cur->status = TASK_READY;
-    schedule();  //从当前线程跳到下一个线程
+    schedule();  //任务调度
     intr_set_status(old_status);
 }
 
 
 /*  当前线程将自己阻塞,标志其状态为stat  */
 void thread_block(task_status stat){ //stat的取值为不可运行态
-    /*只有在非运行状态才能阻塞*/
+    /*  把当前线程的状态设置成非运行态  */
     ASSERT((stat == TASK_BLOCKED) || \
            (stat == TASK_WAITING) || \
            (stat == TASK_HANGING));
@@ -216,7 +214,7 @@ void thread_block(task_status stat){ //stat的取值为不可运行态
 /*  将线程pthread解除阻塞  */
 void thread_unblock(task_struct* pthread){
     intr_status old_status = intr_disable();
-    /*只有在阻塞状态下才能解除阻塞*/
+    /*  只有在阻塞状态下才需要解除阻塞  */
     ASSERT((pthread->status == TASK_BLOCKED) || \
            (pthread->status == TASK_WAITING) || \
            (pthread->status == TASK_HANGING));
@@ -234,14 +232,10 @@ void thread_unblock(task_struct* pthread){
 
 /*  系统空闲时运行的线程  */
 static void idle(void* __attribute__((unused)) args){
-    /*
-      idle线程很奇妙
-      刚运行就阻塞了自己,完全就是一个工具线程
-    */
-    while(1){
-        thread_block(TASK_BLOCKED);
+    while(1){  //无限循环,保证idle线程一直存在
+        thread_block(TASK_BLOCKED); //阻塞后等待被唤醒
         /*执行hlt之前必须把中断打开否则就无法退出休眠模式了*/
-        asm volatile("sti;hlt": : :"memory");  //运行后就直接停在了这里,直到出现了外部中断
+        asm volatile("sti;hlt": : :"memory");  //被唤醒后才进入休眠状态
     }
 }
 

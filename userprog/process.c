@@ -3,7 +3,6 @@
 #include <tss.h>
 #include <string.h>
 #include <console.h>
-#include <memory.h>
 #include <debug.h>
 
 
@@ -15,10 +14,11 @@ extern list thread_ready_list; //就绪队列
 extern list thread_all_list;   //所有任务队列
 
 
-/*构建用户进程初始上下文*/
+/*  构建用户进程初始上下文  */
 void start_process(void* filename_){
     void* function = filename_; //程序的名称
     task_struct* cur = running_thread();
+    /*  得到当前线程的中断栈  */
     cur->self_kstack += sizeof(thread_stack);
     intr_stack* proc_stack = (intr_stack*)cur->self_kstack;
     proc_stack->edi = proc_stack->esi = proc_stack->ebp = proc_stack->esp_dummy = 0;
@@ -98,7 +98,7 @@ uint32_t* create_page_dir(void){
 
 
 
-/*创建用户进程虚拟地址位图*/
+/*  创建用户进程虚拟地址位图  */
 void create_user_vaddr_bitmap(task_struct* user_prog){
     user_prog->userprog_vaddr.vaddr_start = USER_VADDR_START;
     uint32_t bitmap_pg_cnt = DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PG_SIZE / 8, PG_SIZE);

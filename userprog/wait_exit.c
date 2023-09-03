@@ -1,1 +1,1 @@
-#include "wait_exit.h"
+#include <wait_exit.h>

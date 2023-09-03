@@ -101,7 +101,7 @@ typedef struct{
 typedef struct{
     /*
       内核线程用自己的内核栈,是一个地址指针
-      self_kstart被初始化为PCB所在页的顶端(注意是初始化时)
+      self_kstart被初始化为PCB所在页的顶端
       页的最顶端是intr_stack,其次是thread_stack
       用来记录0特权级栈在保存线程上下文后的新的栈顶
       在下一次被调度器选中后,把self_kstart的值加载到esp
@@ -118,14 +118,16 @@ typedef struct{
     uint32_t elapsed_ticks;
 
 
-    /*list_elem类型的变量不需要赋值,根据这个标签就能找到pcb*/
-    /*线程在一般队列中的结点(标签),轻量级队列,它是线程的标志*/
+    /*
+      线程在一般队列中的结点(标签),轻量级队列,它是线程的标志*
+      把标签连接到任务队列的链上
+    */
     list_elem general_tag;
 
-    /*线程队列thread_all_list中的结点,每一个节点都是一个标签*/
+    /*线程队列thread_all_list中的结点,链上每一个节点都是一个标签*/
     list_elem all_list_tag;
 
-    /*进程所在页表的虚拟地址;如果是线程则为NULL*/
+    /*  进程所在页目录的虚拟地址;如果是线程则为NULL  */
     uint32_t* pgdir; //根据是否为NULL就能区别出是否为线程了
     virtual_addr userprog_vaddr; //用户进程的虚拟地址
     mem_block_desc u_block_desc[DESC_CNT];  //用户进程内存块描述符

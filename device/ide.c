@@ -2,14 +2,14 @@
 #include <stdio-kernel.h>
 #include <debug.h>
 #include <stdio.h>
-#include <sync.h>
 #include <io.h>
 #include <interrupt.h>
 #include <timer.h>
+#include <string.h>
 
 
 
-/*定义硬盘各寄存器的端口号*/
+/*  定义硬盘各寄存器的端口号  */
 #define reg_data(channel)           (channel->port_base + 0)
 #define reg_error(channel)          (channel->port_base + 1)
 #define reg_sect_cnt(channel)       (channel->port_base + 2)
@@ -54,6 +54,14 @@
 
 uint8_t channel_cnt;      //按硬盘数计算的通道数
 ide_channel channels[2];  //一个主IDE通道和一个从IDE通道,每个IDE通道可以支持连接两个设备
+
+
+/*  用于记录总拓展分区的起始lba  */
+int32_t extension_lba_base = 0;
+
+uint8_t primary_partition=0,logic_partition=0;  //用来记录主分区和逻辑分区的下标
+
+list partition_list;  //分区队列
 
 
 
@@ -118,7 +126,7 @@ static bool busy_wait(disk* hd){
         if(!(inb(reg_status(channel)) & BIT_ALT_STAT_BSY)){
             return (inb(reg_status(channel)) & BIT_ALT_STAT_BSY);
         }else{
-            mtime_sleep(10);  //如果在忙就等10毫秒
+            mtime_sleep(10);  //硬盘繁忙,等待10毫秒
         }
     }
     return false;  //如果30后还是不行说明肯定失败了,要报错
@@ -146,9 +154,9 @@ void ide_read(disk* hd,uint32_t lba,void* buf,uint8_t sec_cnt){
 
         /*
           硬盘开始忙的时候会阻塞自己(线程停下,硬盘慢慢干活不要消耗CPU资源)
-          准备好之后,使用中断唤醒自己这个线程
+          准备好之后,使用中断唤醒自己这个线程(硬盘中断)
         */
-
+        sema_down(&hd->my_channel->disk_done);
 
         /*  4、检测硬盘状态是否可读  */
         if(!busy_wait(hd)){  //超时说明已经出错了
@@ -173,7 +181,7 @@ static void write2sector(disk* hd,void* buf,uint8_t sec_cnt){
 
 
 
-/* 将buf中sec_cnt扇区数据写入硬盘  */
+/*  将buf中sec_cnt扇区数据写入硬盘  */
 void ide_write(disk* hd,uint32_t lba,void* buf,uint32_t sec_cnt){
     lock_acquire(&hd->my_channel->lock);
 
@@ -187,30 +195,104 @@ void ide_write(disk* hd,uint32_t lba,void* buf,uint32_t sec_cnt){
         cmd_out(hd->my_channel, CMD_WRITE_SECTOR);
         if(!busy_wait(hd)){ //超时检测
             char error[64];
-            sprintf(error, "%s read sector %d failed!!!\n",hd->name,lba);
+            sprintf(error, "%s write sector %d failed!!!\n",hd->name,lba);
             PANIC(error);
         }
         write2sector(hd, (void*)buf + secs_done, secs_op);
+        /*  在硬盘响应期间不需要CPU做什么  */
+        sema_down(&hd->my_channel->disk_done);
         secs_done += secs_op;
     }
     lock_release(&hd->my_channel->lock);
 }
+/*
+  注意:读硬盘时写入命令硬盘就应该开始工作了;写入硬盘时,只有在把数据传入硬盘控制器后才开始工作
+*/
 
 
 
 
 /*  硬盘中断处理函数  */
-void intr_hd_handler(uint8_t irq_no){
+void intr_hd_handler(uint8_t irq_no){  //硬盘准备好了触发中断
     ASSERT(irq_no == 0x2e || irq_no == 0x2f);
-    ide_channel* channel = &channels[irq_no - 0x20];
+    ide_channel* channel = &channels[irq_no - 0x20]; //通过中断号判断是哪个通道
     ASSERT(channel->irq_no == irq_no);
     if(channel->expecting_intr){
         channel->expecting_intr = false;
-        sema_up(&channel->disk_done);
+        sema_up(&channel->disk_done); //唤醒被阻塞的线程
 
         /*读取status寄存器使硬盘认为已经处理过了*/
         inb(reg_status(channel));
     }
+}
+
+
+
+/*  获取硬盘参数信息  */
+static void identify_disk(disk* hd){
+    char id_info[512];
+    select_disk(hd);
+    cmd_out(hd->my_channel, CMD_IDENTIFY);
+    /*  每次进行硬盘操作前都阻塞一下自己,以便提高CPU运行效率   */
+    sema_down(&hd->my_channel->disk_done);
+    if(!busy_wait(hd)){ //超时检测
+        char error[64];
+        sprintf(error, "%s identify failed !\n",hd->name);
+        PANIC(error);
+    }
+    read_from_sector(hd, id_info, 1);
+
+
+    /*  把从硬盘中获取到的信息进行处理后展示出来  */
+    char buf[64];uint8_t index;
+    char* ptr = NULL;
+
+    /*  展示硬盘序列号SN码(20 - 38)  */
+    ptr = &id_info[20];
+    for(index=0;index < 20;index+=2){
+        buf[index + 1] = *ptr++;
+        buf[index] = *ptr++;
+    }
+    printk("    disk %s info:\n    SN: %s\n",hd->name,buf);
+
+    /*  展示硬盘型号(54 - 92)  */
+    memset(buf, 0, sizeof buf - 1);
+    ptr = &id_info[54];
+    for(index = 0;index < 40;index+=2){
+        buf[index + 1] = *ptr++;
+        buf[index] = *ptr++;
+    }
+    printk("    MODULE: %s\n",buf);
+
+    /*  展示可供用户使用的扇区数(120 - 124)和硬盘容量  */
+    printk("    SECTORS: %d\n",*(uint32_t *)&id_info[120]);
+    printk("    capacity: %d\n",*(uint32_t *)&id_info[120] * 512 / 1024 /1024);
+}
+
+
+
+/*  扫描硬盘hd中地址为extension_lba的扇区中的所有分区  */
+static void partition_scan(disk* hd,uint32_t extension_lba){
+    boot_sector* bs = sys_malloc(sizeof(boot_sector));
+    ide_read(hd, extension_lba, bs, 1);
+    partition_table_entry* p = bs->partition_table;
+    uint8_t part_idx = 0;
+
+    /*  遍历分区表4个分区表项  */
+    while(part_idx < 4){
+        if(p->fs_type == 0x5){  //如果是拓展分区
+
+        }
+    }
+}
+
+
+
+/*  打印分区信息  */
+static bool partition_info(list_elem* pelem,int arg __attribute__((unused))){
+    partition* part = elem2entry(partition, part_tag, pelem);
+
+    return false;
 }
 
 
@@ -257,8 +339,15 @@ void ide_init(void){
         channel_no++; //初始化下一个通道
     }
 
+    /*  注册中断处理函数  */
     register_handler(0x2e,intr_hd_handler);
     register_handler(0x2f,intr_hd_handler);
 
+    /*  分别获取两个硬盘的参数及分区信息  */
+
+
+    /*  打印所有分区信息  */
+    printk("\n all partition info\n");
+    list_traversal(&partition_list, partition_info, (int)NULL);
     printk("ide_init done\n");
 }

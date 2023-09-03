@@ -14,11 +14,10 @@ switch_to:
 
     mov eax,[ebp + 20] ;得到栈中的参数cur,绕过前面4个push,直接获取到cur这个参数,即eax=cur
     mov [eax],esp ;保存当前栈顶指针esp,到PCB的self_kstart字段,即cur->self_kstack=esp
-                  ;self_ksatrt在task_stack中的偏移量为0
-                  ;所以直接往thread开头存4 Bytes就好  
+                  ;self_ksatrt在task_stack中的偏移量为0,esp寄存器也恰好是4个字节
+                  ;等到下一次被调度到的时候在把self_kstart写会到esp,于是任务的栈信息也被还原了
 
 
-    ;上面和下面的代码作用不同
     ;以上是备份当前线程的环境,下面是恢复下一个线程的环境
 
 
@@ -35,4 +34,5 @@ switch_to:
     pop edi
     pop esi
     ret ;最后用ret跳到下一个任务,已经不会回到原来的函数了
+        ;因为ret是从esp中找到返回到函数的路,而esp刚刚进行修改
         ;未由中断进入,第一次执行时会返回到kernel_thread

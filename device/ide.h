@@ -44,9 +44,37 @@ typedef struct ide_channel{
     uint8_t irq_no;             //本通道使用的中断号(主盘:0x2e;从盘:0x2f)
     lock lock;                  //通道锁
     bool expecting_intr;        //硬盘是否在等待中断
-    semaphore disk_done;        //用于阻塞和唤醒驱动程序(在等待期间阻塞自己)
+    semaphore disk_done;        //用于阻塞和唤醒驱动程序()
     disk devices[2];            //一个通道连接两个硬盘,主盘与从盘
 }ide_channel;
+
+
+
+/*  分区表  */
+typedef struct{
+    uint8_t bootable;       //是否可引导
+    uint8_t start_head;     //起始磁头号
+    uint8_t start_sector;   //起始扇区号
+    uint8_t start_cylinder; //起始柱面号
+    uint8_t fs_type;        //分区类型
+    uint8_t end_head;
+    uint8_t end_sector;
+    uint8_t end_cylinder;
+
+    /*  现在都使用lba方式  */
+    uint32_t start_lba;     //起始扇区的lba地址
+    uint32_t sector_cnt;    //该分区有几个扇区
+
+}partition_table_entry __attribute__((packed));
+
+
+
+/*  引导扇区  */
+typedef struct{
+    uint8_t other[446];  //引导代码(占位)
+    partition_table_entry partition_table[4];  //分区表共4项,64个字节
+    uint16_t signature;  //结束标志是一个魔数0x55aa
+}boot_sector __attribute__((packed));
 
 
 

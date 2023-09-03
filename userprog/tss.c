@@ -1,7 +1,7 @@
-#include "tss.h"
-#include "global.h"
-#include "print.h"
-#include "string.h"
+#include <tss.h>
+#include <global.h>
+#include <print.h>
+#include <string.h>
 
 #define PG_SIZE 4096 
 
