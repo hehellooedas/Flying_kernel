@@ -3,24 +3,27 @@
 #include "stdint.h"
 
 
+#define pass ((void)0) //占位符
+
 /*注意：二者都是真返回1,假返回0*/
 #define LIKELY(x)    __builtin_expect(!!(x),1)  //x很可能为真
 #define UNLIKELY(x)  __builtin_expect(!!(x),0)  //x很可能为假
 
-#define PG_SIZE 4096 //1页的大小为4KB
+#define PG_SIZE 4096  //1页的大小为4KB
 
-/*CPU特权级*/
+/*  CPU特权级  */
 #define RPL0    0
 #define RPL1    1
 #define RPL2    2
 #define RPL3    3 
 
-/*选择子Ti位*/
+
+/*  选择子Ti位  */
 #define TI_GDT    0
 #define TI_LDT    1
 
 
-/*GDT描述符属性*/
+/*  GDT描述符属性  */
 #define DESC_G_4K    1    //粒度为4K
 #define DESC_D_32    1    //以32位执行代码
 #define DESC_L       0    //64位标志，32位操作系统置0即可
@@ -46,7 +49,7 @@
 
 
 
-/*定义RPL0选择子,原先已经在loader.S里定义了,这里再写一遍*/
+/*  定义RPL0选择子(方便c语言使用),原先已经在loader.S里定义了  */
 #define SELECTOR_K_CODE    ((1 << 3) + (TI_GDT << 2) + RPL0) //代码段选择子
 #define SELECTOR_K_DATA    ((2 << 3) + (TI_GDT << 2) + RPL0) //数据段选择子
 #define SELECTOR_K_STACK   SELECTOR_K_DATA                   //栈段选择子
@@ -55,7 +58,7 @@
 /*定义用户段RPL3选择子*/
 #define SELECTOR_U_CODE    ((5 << 3) + (TI_GDT << 2) + RPL3)
 #define SELECTOR_U_DATA    ((6 << 3) + (TI_GDT << 2) + RPL3)
-#define SELECTOR_U_STACK SELECTOR_U_DATA
+#define SELECTOR_U_STACK   SELECTOR_U_DATA
 
 #define GDT_ATTR_HIGH \
 ((DESC_G_4K << 7) + (DESC_D_32 << 6) + (DESC_L << 5) + (DESC_AVL << 4))
@@ -84,7 +87,7 @@
 
 
 
-/*TSS描述符属性*/
+/*  TSS描述符属性  */
 #define TSS_DESC_D  0
 
 #define TSS_ATTR_HIGH \
@@ -100,11 +103,11 @@
 (DESC_TYPE_TSS)
 
 
-/*TSS选择子*/
+/*  TSS选择子  */
 #define SELECTOR_TSS ((4 << 3) + (TI_GDT << 2) + RPL0)
 
 
-/*GDT中描述符的结构*/
+/*  GDT中描述符的结构  */
 typedef struct{
     uint16_t limit_low_word;
     uint16_t base_low_word;
@@ -116,7 +119,7 @@ typedef struct{
 
 
 
-/*构造PSW eflags的属性位*/
+/*  构造PSW eflags的属性位  */
 #define EFLAGS_MBS    (1 << 1)    //此项必须设置
 #define EFLAGS_IF_1   (1 << 9)    //if=1 开中断
 #define EFLAGS_IF_0   0           //if=0 关中断(1 << 9)

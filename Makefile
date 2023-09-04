@@ -119,7 +119,7 @@ $(BUILD_DIR)/stdio-kernel.o:lib/kernel/stdio-kernel.c lib/kernel/stdio-kernel.h 
 	$(CC) $(CFLASGS) $< -o $@
 
 $(BUILD_DIR)/ide.o:device/ide.c device/ide.h lib/stdint.h thread/thread.h \
-		thread/sync.h 
+		thread/sync.h kernel/interrupt.h kernel/debug.h lib/kernel/io.h
 	$(CC) $(CFLASGS) $< -o $@
 
 

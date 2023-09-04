@@ -12,7 +12,7 @@ typedef struct partition partition ;
 typedef struct ide_channel ide_channel ;
 
 
-/*分区结构*/
+/*  分区结构  */
 typedef struct partition{
     uint32_t start_lba;         //起始扇区
     uint32_t sec_cnt;           //扇区数
@@ -26,7 +26,7 @@ typedef struct partition{
 }partition;
 
 
-/*硬盘结构*/
+/*  硬盘结构  */
 typedef struct disk{
     char name[8];               //硬盘名称(如sda、sdb)
     ide_channel* my_channel;    //此块硬盘归属于哪个ide通道
@@ -51,12 +51,15 @@ typedef struct ide_channel{
 
 
 /*  分区表  */
-typedef struct{
+typedef struct __attribute__((packed)){  //16字节,每个分区表项的大小是固定的
     uint8_t bootable;       //是否可引导
-    uint8_t start_head;     //起始磁头号
-    uint8_t start_sector;   //起始扇区号
-    uint8_t start_cylinder; //起始柱面号
+    /*  起始信息  */
+    uint8_t start_head;     //磁头号
+    uint8_t start_sector;   //扇区号
+    uint8_t start_cylinder; //柱面号
     uint8_t fs_type;        //分区类型
+    
+    /*  结束信息  */
     uint8_t end_head;
     uint8_t end_sector;
     uint8_t end_cylinder;
@@ -65,16 +68,16 @@ typedef struct{
     uint32_t start_lba;     //起始扇区的lba地址
     uint32_t sector_cnt;    //该分区有几个扇区
 
-}partition_table_entry __attribute__((packed));
+}partition_table_entry ;
 
 
 
 /*  引导扇区  */
-typedef struct{
+typedef struct __attribute__((packed)){  //512字节
     uint8_t other[446];  //引导代码(占位)
     partition_table_entry partition_table[4];  //分区表共4项,64个字节
     uint16_t signature;  //结束标志是一个魔数0x55aa
-}boot_sector __attribute__((packed));
+}boot_sector ;
 
 
 
@@ -95,6 +98,7 @@ uint32_t get_sector_number(uint32_t done,uint32_t all){
         return all - done; //如果不到256,就一次性把剩余扇区操作完成
     }
 }
+
 
 void ide_read(disk* hd,uint32_t lba,void* buf,uint8_t sec_cnt);
 void ide_write(disk* hd,uint32_t lba,void* buf,uint32_t sec_cnt);

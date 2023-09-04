@@ -23,6 +23,6 @@ void init_all(void){
     tss_init();        //初始化tss
     rtc_init();        //初始化rtc时钟
     syscall_init();    //初始化system call
-    ide_init();        //初始化ide硬盘
+    //ide_init();        //初始化ide硬盘
     put_str("init_all done\n");
 }

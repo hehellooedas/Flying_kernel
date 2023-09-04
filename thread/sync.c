@@ -1,6 +1,6 @@
-#include "debug.h"
-#include "sync.h"
-#include "interrupt.h"
+#include <debug.h>
+#include <sync.h>
+#include <interrupt.h>
 
 /*锁结构最关键的部分是信号量*/
 
@@ -23,17 +23,17 @@ void lock_init(lock* plock){
 
 /*  信号量down操作  */
 void sema_down(semaphore* psema){
-    /*关闭中断以保证原子操作*/
+    /*  关闭中断以保证原子操作  */
     intr_status old_status = intr_disable();
     /*若value=0说明已经被别人持有,那就让现在这个申请者稍事休息*/
     while (psema->value == 0) { //循环判定更有时效性,被唤醒后再做判断(参与竞争)
         ASSERT(!elem_find(&psema->waiters,&running_thread()->general_tag));
-        /*当前线程不能已经存在于信号量的waiter中*/
+        /*当前线程不能已经存在于信号量的waiters中*/
         if(elem_find(&psema->waiters,&running_thread()->general_tag)){
             PANIC("sema_down:thread blocked has been in waiters_list\n");
         }
        list_append(&psema->waiters, &running_thread()->general_tag); //把当前线程放到等待队列的末尾
-       thread_block(TASK_BLOCKED);  //阻塞当前线程，直到被唤醒
+       thread_block(TASK_BLOCKED);  //阻塞当前线程,直到被唤醒(被阻塞了就不会一直while了)
     }
     /*若value=1或被唤醒后,会执行下面的代码,也就是获得了锁;被唤醒前下面的代码不会被执行*/
     --psema->value;
@@ -48,23 +48,22 @@ void sema_up(semaphore* psema){
     intr_status old_status = intr_disable();
     ASSERT(psema->value == 0);
     if(!list_empty(&psema->waiters)){
-        /*资源空闲后 把该信号量的waiter队列里的第一位拿出来解除阻塞*/
+        /*  资源空闲后 把该信号量的waiter队列里的第一位拿出来解除阻塞  */
         task_struct* thread_blocked = elem2entry(task_struct,general_tag,list_pop(&psema->waiters));
         thread_unblock(thread_blocked);
     }
-    ++psema->value; //给后来者一个机会
+    ++psema->value; //如果该信号量里所有被阻塞的线程都解除阻塞了,说明该信号量保管的资源已经没人要了
     ASSERT(psema->value == 1);
     intr_set_status(old_status);
 }
 
 
-/*获取锁plock*/
-/*在申请或者释放锁时该函数只是做一个重复申请的判断，真正起效果的是semaphore*/
+/*  获取锁plock  */
 void lock_acquire(lock* plock){
-    /*排除曾经自己已经持有锁而还未释放的情况*/
-    if(plock->holder != running_thread()){ //如果锁的持有者不是当前线程(申请者就是当前线程)
+    /*  排除曾经自己已经持有锁而还未释放的情况  */
+    if(plock->holder != running_thread()){  //如果锁的持有者不是当前线程(申请者就是当前线程)
         sema_down(&plock->semaphore); //申请者参与竞争
-        plock->holder = running_thread(); //则设置为当前线程
+        plock->holder = running_thread();   //则设置为当前线程
         ASSERT(plock->holder_repeat_nr == 0);
         plock->holder_repeat_nr = 1; //第一次申请
     }else{ //如果锁的持有者就是当前线程,说明重复申请了
@@ -73,7 +72,7 @@ void lock_acquire(lock* plock){
 }
 
 
-/*释放锁plock*/
+/*  释放锁plock  */
 void lock_release(lock* plock){
     ASSERT(plock->holder == running_thread()); //锁持有者才能释放锁
     if(plock->holder_repeat_nr > 1){ //把重复申请的清理掉

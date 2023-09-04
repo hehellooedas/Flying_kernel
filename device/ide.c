@@ -55,13 +55,14 @@
 uint8_t channel_cnt;      //按硬盘数计算的通道数
 ide_channel channels[2];  //一个主IDE通道和一个从IDE通道,每个IDE通道可以支持连接两个设备
 
+uint8_t dev_no = 0;
 
 /*  用于记录总拓展分区的起始lba  */
 int32_t extension_lba_base = 0;
 
 uint8_t primary_partition=0,logic_partition=0;  //用来记录主分区和逻辑分区的下标
 
-list partition_list;  //分区队列
+list partition_list;  //分区队列(记录所有分区)
 
 
 
@@ -129,7 +130,7 @@ static bool busy_wait(disk* hd){
             mtime_sleep(10);  //硬盘繁忙,等待10毫秒
         }
     }
-    return false;  //如果30后还是不行说明肯定失败了,要报错
+    return false;  //如果30秒后还是不行说明肯定失败了,要报错
 }
 
 
@@ -199,7 +200,7 @@ void ide_write(disk* hd,uint32_t lba,void* buf,uint32_t sec_cnt){
             PANIC(error);
         }
         write2sector(hd, (void*)buf + secs_done, secs_op);
-        /*  在硬盘响应期间不需要CPU做什么  */
+        /*  在硬盘响应期间不需要CPU做什么,完成后硬盘会发出中断  */
         sema_down(&hd->my_channel->disk_done);
         secs_done += secs_op;
     }
@@ -215,13 +216,13 @@ void ide_write(disk* hd,uint32_t lba,void* buf,uint32_t sec_cnt){
 /*  硬盘中断处理函数  */
 void intr_hd_handler(uint8_t irq_no){  //硬盘准备好了触发中断
     ASSERT(irq_no == 0x2e || irq_no == 0x2f);
-    ide_channel* channel = &channels[irq_no - 0x20]; //通过中断号判断是哪个通道
+    ide_channel* channel = &channels[irq_no - 0x2e]; //通过中断号判断是哪个通道
     ASSERT(channel->irq_no == irq_no);
     if(channel->expecting_intr){
         channel->expecting_intr = false;
         sema_up(&channel->disk_done); //唤醒被阻塞的线程
 
-        /*读取status寄存器使硬盘认为已经处理过了*/
+        /*  读取status寄存器使硬盘认为已经处理过了  */
         inb(reg_status(channel));
     }
 }
@@ -233,15 +234,16 @@ static void identify_disk(disk* hd){
     char id_info[512];
     select_disk(hd);
     cmd_out(hd->my_channel, CMD_IDENTIFY);
+
     /*  每次进行硬盘操作前都阻塞一下自己,以便提高CPU运行效率   */
     sema_down(&hd->my_channel->disk_done);
+
     if(!busy_wait(hd)){ //超时检测
         char error[64];
         sprintf(error, "%s identify failed !\n",hd->name);
         PANIC(error);
     }
     read_from_sector(hd, id_info, 1);
-
 
     /*  把从硬盘中获取到的信息进行处理后展示出来  */
     char buf[64];uint8_t index;
@@ -274,26 +276,56 @@ static void identify_disk(disk* hd){
 /*  扫描硬盘hd中地址为extension_lba的扇区中的所有分区  */
 static void partition_scan(disk* hd,uint32_t extension_lba){
     boot_sector* bs = sys_malloc(sizeof(boot_sector));
+
+    /*  获取磁盘第extension_lba个扇区的数据进行分析  */
     ide_read(hd, extension_lba, bs, 1);
+
+    /*  分区表项指针(每个表项都是固定的16字节)  */
     partition_table_entry* p = bs->partition_table;
-    uint8_t part_idx = 0;
+    uint8_t part_idx = 0;  //分区表索引
 
     /*  遍历分区表4个分区表项  */
-    while(part_idx < 4){
-        if(p->fs_type == 0x5){  //如果是拓展分区
-
+    while(part_idx++ < 4){
+        if(p->fs_type == 0x5){  //如果是拓展分区.递归调用
+            if(extension_lba_base != 0){
+                partition_scan(hd, p->start_lba + extension_lba_base);
+            }else{  //OBR所在的扇区
+                extension_lba_base = p->start_lba;
+                partition_scan(hd, p->start_lba);
+            }
+        }else if(p->fs_type != 0){   //如果是有效的分区类型
+            if(extension_lba == 0){  //如果是主分区
+                hd->prim_parts[primary_partition].start_lba = extension_lba + p->start_lba;
+                hd->prim_parts[primary_partition].sec_cnt = p->sector_cnt;
+                hd->prim_parts[primary_partition].my_disk = hd;
+                list_append(&partition_list, &hd->prim_parts[primary_partition].part_tag);
+                sprintf(hd->prim_parts[primary_partition].name, "%s%d",hd->name,primary_partition + 1);
+                primary_partition++;
+                ASSERT(primary_partition < 4);  //主分区有数量限制
+            }else{  //否则就是逻辑分区
+                /*  逻辑分区的编号从5开始,1~4给了主分区(无论主分区是否占满了4个)  */
+                hd->logic_parts[logic_partition].start_lba = extension_lba + p->start_lba;
+                hd->logic_parts[logic_partition].sec_cnt = p->sector_cnt;
+                hd->logic_parts[logic_partition].my_disk = hd;
+                list_append(&partition_list, &hd->logic_parts[logic_partition].part_tag);
+                sprintf(hd->logic_parts[logic_partition].name, "%s%d",hd->name,logic_partition + 5);
+                if(logic_partition++ >= 8) return;  //限制逻辑分区的数量
+            }
         }
+        p++;  //指向下一个分区表项
     }
+    sys_free(bs);
 }
 
 
 
-/*  打印分区信息  */
+/*  打印分区信息(partition_list记录了所有的分区信息)  */
 static bool partition_info(list_elem* pelem,int arg __attribute__((unused))){
     partition* part = elem2entry(partition, part_tag, pelem);
-
+    printk("    %s start_lba:0x%x, sector_cnt:0x\n",part->name,part->start_lba,part->sec_cnt);
     return false;
 }
+
 
 
 
@@ -301,6 +333,9 @@ static bool partition_info(list_elem* pelem,int arg __attribute__((unused))){
 void ide_init(void){
     printk("ide_init start\n");
 
+    /*  注册硬盘中断处理函数  */
+    register_handler(0x2e,intr_hd_handler);
+    register_handler(0x2f,intr_hd_handler);
 
     uint8_t hd_cnt = *((uint8_t*)(0x475)); //获取硬盘的数量
     ASSERT(hd_cnt > 0);  //数量必然大于0
@@ -333,21 +368,32 @@ void ide_init(void){
         lock_init(&channel->lock);
 
         /*
-        信号量初始化为0 一被占用就阻塞自己
+          信号量初始化为0 (一被占用就阻塞自己)
         */
         sema_init(&channel->disk_done, 0);
+
+                
+        /*  分别获取两个硬盘的参数及分区信息  */
+        while (dev_no < 2) {
+            disk* hd = &channel->devices[dev_no];
+            hd->my_channel = channel;
+            hd->dev_no = dev_no;
+            sprintf(hd->name, "sd%c",'a' + channel_no * 2 + dev_no);
+            identify_disk(hd);  //获取硬盘信息
+            if(dev_no != 0){  //裸盘不处理
+                partition_scan(hd, 0);
+            }
+            primary_partition = 0;logic_partition = 0;
+            dev_no++;
+        }
+        dev_no = 0; //每个IDE通道的两个硬盘都各自重新编码
         channel_no++; //初始化下一个通道
     }
-
-    /*  注册中断处理函数  */
-    register_handler(0x2e,intr_hd_handler);
-    register_handler(0x2f,intr_hd_handler);
-
-    /*  分别获取两个硬盘的参数及分区信息  */
 
 
     /*  打印所有分区信息  */
     printk("\n all partition info\n");
+    /*  对队列里的每一项执行打印信息函数  */
     list_traversal(&partition_list, partition_info, (int)NULL);
     printk("ide_init done\n");
 }

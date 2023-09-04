@@ -8,6 +8,7 @@
 #include <time.h>
 #include <debug.h>
 #include <timer.h>
+#include <ide.h>
 
 
 
@@ -25,19 +26,20 @@ int __attribute__((noreturn)) main(void)
     /*此时中断并未打开，先把任务放到队列里*/
     
     //process_execute(u_prog_a, "user_prog_a");
-    process_execute(u_prog_b, "user_prog_b");
-    thread_start("memory_thread", 31, memory_thread,"memory_thread");
-    thread_start("free_thread", 31, free_thread, "free_thread");
+    //process_execute(u_prog_b, "user_prog_b");
+    //thread_start("memory_thread", 31, memory_thread,"memory_thread");
+    //thread_start("free_thread", 31, free_thread, "free_thread");
 
 
-    put_str_color("Hello World\n", light_blue);
-    put_str_color("Hello FlyingOS\n", dark_purple);
+    //put_str_color("Hello World\n", light_blue);
+    //put_str_color("Hello FlyingOS\n", dark_purple);
+
     intr_enable(); //打开中断
     thread_yield();
     struct tm now = getTime();
     
     printTime(now);
-    
+    printf("%d  %d",sizeof(partition_table_entry),sizeof(boot_sector));
     while(1);
     //return 0;
 }
@@ -62,7 +64,9 @@ void memory_thread(void* arg){
 }
 
 void free_thread(void* arg){
-    while(1);
+    for(int i=0;i<5;i++){
+        console_put_str("free_thread");
+    }
 }
 
 void u_prog_a(void){
@@ -79,6 +83,7 @@ void u_prog_a(void){
 }
 
 void u_prog_b(void){
+    printf("Hello\n");
     while(1);
 }
 

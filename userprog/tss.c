@@ -3,7 +3,6 @@
 #include <print.h>
 #include <string.h>
 
-#define PG_SIZE 4096 
 
 /*任务状态段TSS的结构*/
 struct tss{
@@ -33,12 +32,13 @@ struct tss{
     uint32_t gs;
     uint32_t ldt;
     uint32_t trace;
-    uint32_t io_base;
-
+    uint32_t io_base;  //IO位图在TSS中的偏移地址
 };
 
 
+
 struct tss tss; //只需要这一个tss就好了
+
 
 
 /*更新tss中esp0字段的值为pthread的0级栈,PCB所在页的最顶端*/
@@ -47,7 +47,8 @@ void update_tss_esp0(task_struct* pthread){
 }
 
 
-/*创建gdt描述符*/
+
+/*  创建gdt描述符  */
 static gdt_desc make_gdt_desc(uint32_t* desc_addr,uint32_t limit,uint8_t attr_low,uint8_t attr_high){
     uint32_t desc_base = (uint32_t)desc_addr;
     gdt_desc desc; //新建描述符变量
@@ -56,13 +57,13 @@ static gdt_desc make_gdt_desc(uint32_t* desc_addr,uint32_t limit,uint8_t attr_lo
     desc.base_mid_byte = ((desc_base & 0x00ff0000) >> 16);
     desc.attr_low_byte = (uint8_t)attr_low;
     desc.limit_high_word = ((limit & 0x000f0000) >> 16) + (uint8_t)(attr_high);
-    desc.base_high_byte = desc_base >>24;
+    desc.base_high_byte = desc_base >> 24;
     return desc;
 }
 
 
 
-/*在gdt中创建tss并加载gdt*/
+/*  在gdt中创建tss并加载gdt  */
 void tss_init(void){
     put_str("tss_init start\n");
     uint32_t tss_size = sizeof(tss);

@@ -4,9 +4,8 @@
 #include <print.h>
 #include <debug.h>
 #include <string.h>
+#include <stdio-kernel.h>
 
-
-#define PG_SIZE 4096
 
 
 static lock pid_lock;   //分配pid锁
@@ -150,24 +149,27 @@ void schedule(void){
     ASSERT(intr_get_status() == INTR_OFF);
     task_struct* cur = running_thread();
     if(cur->status == TASK_RUNNING){
-        /*若该线程只是CPU时间片到了，则放置于队列尾*/
+        /*  若该线程只是CPU时间片到了，则放置于队列尾  */
         ASSERT(!(elem_find(&thread_ready_list,&cur->general_tag)));
         list_append(&thread_ready_list,&cur->general_tag);
         cur->ticks = cur->priority;
         cur->status = TASK_READY;
     }else{
         /*
-          若此线程需要某事件发生后才继续上CPU运行
-          比如yield主动交出运行权,此时已经是等待状态了
+          若当前线程处于非运行状态,则不需要放置到thread_ready_list的末尾了
+          比如yield主动交出运行权,此时已经加入到队列末尾了,不用再加入一次
+          被信号量阻塞的线程会暂时由信号量队列保管,接触阻塞后push到等待队列
         */
-
+        pass;
     }
     /*  如果就绪队列是空的,就唤醒idle线程  */
     if(list_empty(&thread_ready_list)){
         thread_unblock(idle_thread);
     }
     thread_tag = NULL; //thread_tag先清空
-    /*将thread_ready_list队列中第一个就绪线程弹出并准备将其调度到CPU*/
+    /*  将thread_ready_list队列中第一个就绪线程弹出并准备将其调度到CPU
+        也就是当前正在执行的线程其实是不在thread_ready_list队列里的
+    */
     thread_tag = list_pop(&thread_ready_list);
     /*通过thread_tag找到对应的PCB,把下一个任务设置为running*/
     task_struct* next = elem2entry(task_struct,general_tag,thread_tag);
@@ -187,12 +189,12 @@ void schedule(void){
 void thread_yield(void){
     task_struct* cur = running_thread();
     intr_status old_status = intr_disable();
-    /*由于当前线程正在运行,所以不在等待队列里*/
+    /*  由于当前线程正在运行,所以不在等待队列里  */
     ASSERT(!elem_find(&thread_ready_list, &cur->general_tag));
-    /*让主动交出运行权的线程(自己)到后面排队*/
+    /*  让主动交出运行权的线程(自己)到后面排队  */
     list_append(&thread_ready_list, &cur->general_tag);
-    cur->status = TASK_READY;
-    schedule();  //任务调度
+    cur->status = TASK_READY;  
+    schedule();  //已经设置了当前线程的状态,此时使用调度函数赋予队列中第一项CPU
     intr_set_status(old_status);
 }
 
@@ -203,10 +205,10 @@ void thread_block(task_status stat){ //stat的取值为不可运行态
     ASSERT((stat == TASK_BLOCKED) || \
            (stat == TASK_WAITING) || \
            (stat == TASK_HANGING));
-    intr_status old_status = intr_disable();
+    intr_status old_status = intr_disable();    //关中断
     task_struct* cur_thread = running_thread(); //获取当前正在运行的线程
     cur_thread->status = stat; //stat是参数
-    schedule(); //把当前任务换下
+    schedule();  //把当前任务换下
     intr_set_status(old_status); //本次已经没有机会执行了,只有下一次被唤醒的时候才能执行
 }
 
@@ -234,7 +236,7 @@ void thread_unblock(task_struct* pthread){
 static void idle(void* __attribute__((unused)) args){
     while(1){  //无限循环,保证idle线程一直存在
         thread_block(TASK_BLOCKED); //阻塞后等待被唤醒
-        /*执行hlt之前必须把中断打开否则就无法退出休眠模式了*/
+        /*  执行hlt之前必须把中断打开否则就无法退出休眠模式了  */
         asm volatile("sti;hlt": : :"memory");  //被唤醒后才进入休眠状态
     }
 }
