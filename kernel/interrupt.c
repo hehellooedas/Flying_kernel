@@ -148,7 +148,7 @@ void register_handler(uint8_t vector_no,intr_handler function){
 
 
 
-/*完成一般中断处理函数注册及异常名称注册*/
+/*  完成一般中断处理函数注册及异常名称注册  */
 static void exception_init(void){
     for(int i=0;i<IDT_DESC_CNT;i++){
         intr_name[i] = "unknown";   //先统一命名

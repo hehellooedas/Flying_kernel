@@ -1,6 +1,7 @@
 #include <debug.h>
 #include <sync.h>
 #include <interrupt.h>
+#include <stdio-kernel.h>
 
 /*锁结构最关键的部分是信号量*/
 

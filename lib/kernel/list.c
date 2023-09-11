@@ -1,12 +1,12 @@
-#include "list.h"
-#include "interrupt.h"
+#include <list.h>
+#include <interrupt.h>
 
 /*  初始化双向链表  */
 void list_init(list* list){
-    list->head.prev = NULL;
+    list->head.prev = NULL;  //不使用该属性
     list->head.next = &list->tail;
     list->tail.prev = &list->head;
-    list->tail.next = NULL;
+    list->tail.next = NULL;  //不是用该属性
 }
 
 

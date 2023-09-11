@@ -7,38 +7,38 @@
 #include <memory.h>
 
 
-typedef int16_t pid_t;
+typedef int16_t pid_t;   //每个任务都有pid,且不可重复
 
-#define default_thread_priority    50
+#define default_thread_priority   50  //设置默认线程优先级
 
-/*定义通用函数类型,用来指定多线程中函数的地址*/
+/*  定义通用函数类型,用来指定线程中函数的地址  */
 typedef void thread_func(void*);
 
 
 /*  进程或线程的状态  */
 typedef enum{
-    TASK_RUNNING, //运行状态
-    TASK_READY,   //就绪状态,需要等待CPU资源
-    TASK_BLOCKED, //阻塞状态
-    TASK_WAITING, //等待状态
-    TASK_HANGING, //挂起状态,不会参与抢占,等待被唤醒
-    TASK_DIED     //死亡状态
+    TASK_RUNNING,  //运行状态,任务正占有CPU
+    TASK_READY,    //就绪状态,任务位于就绪队列中
+    TASK_BLOCKED,  //阻塞状态
+    TASK_WAITING,  //等待状态
+    TASK_HANGING,  //挂起状态,不会参与抢占,等待被唤醒
+    TASK_DIED      //死亡状态
 }task_status;
 
 
-/************************中断栈intr_stack*****************************     
-    * 此结构用于发生中断时,进程或线程的信息会按照此结构压入上下文
-    * kernel.S中intr_exit函数的操作刚好与此相反
+/************************中断栈intr_stack****************************
+    * 此结构用于发生中断时,进程或线程的信息会按照此结构压入上下文(kernel.S + switch.S)
+    * kernel.S中intr_exit函数的操作刚好与此相反(重复利用intr_exit来实现任务切换)
     * 此栈在线程自己的内核栈中的位置固定，在页的最顶端
-********************************************************************/
+*******************************************************************/
 typedef struct{
     uint32_t vec_no; //中断向量号
 
-    /*pushad*/
+    /*  pushad  */
     uint32_t edi;
     uint32_t esi;
     uint32_t ebp;
-    uint32_t esp_dummy;
+    uint32_t esp_dummy; //假的esp象征一下
     uint32_t ebx;
     uint32_t edx;
     uint32_t ecx;
@@ -50,9 +50,9 @@ typedef struct{
     uint32_t es;
     uint32_t ds;
 
-    /*以下是CPU从低特权级进入高特权级时压入(iretd)*/
-    uint32_t err_code;  //错误码
-    void (*eip) (void);
+    /*  以下是CPU从低特权级进入高特权级时压入(iretd)  */
+    uint32_t err_code;   //错误码,intr_exit会直接跳过错误码
+    void (*eip) (void);  //eip可以看成是一个指针变量,指向函数的地址
     uint32_t cs;
     uint32_t eflags;
     void* esp;
@@ -79,9 +79,9 @@ typedef struct{
     uint32_t esi;
 
     /*
-      线程第一次执行时,eip指向待调用的函数kernel_thread(thread_stack的起始地址)
+      线程第一次执行时,eip指向待调用的函数kernel_thread
       其他时候,eip指向switch_to的返回地址
-      我们使用汇编指令ret进入函数执行，所以把函数指针(地址)放在这里
+      我们使用汇编指令ret进入函数执行,所以把函数指针(地址)放在这里
     */
     void (*eip) (thread_func* func,void* func_arg); //跳到kernel_thread
 
@@ -95,7 +95,7 @@ typedef struct{
 
 
 /*  
-  进程或线程的pcb
+  进程或线程的pcb(位于内核空间)
   PCB是进程或线程的身份证,任何进程都必须包含一个PCB结构
 */
 typedef struct{
@@ -108,13 +108,13 @@ typedef struct{
       根据栈中记录的线程信息返回到这个任务
     */
     uint32_t* self_kstack;
-    pid_t pid;
+    pid_t pid;          //任务pid
     task_status status; //线程状态
     char name[16];      //线程名字
-    uint8_t priority;   //线程优先级,是固定值
+    uint8_t priority;   //线程优先级
     uint8_t ticks;      //时间片
 
-    /*从任务自上CPU后至今占用了多少ticks数目*/
+    /*  从任务自上CPU后至今占用了多少ticks数目  */
     uint32_t elapsed_ticks;
 
 
@@ -128,11 +128,11 @@ typedef struct{
     list_elem all_list_tag;
 
     /*  进程所在页目录的虚拟地址;如果是线程则为NULL  */
-    uint32_t* pgdir; //根据是否为NULL就能区别出是否为线程了
+    uint32_t* pgdir;  //根据是否为NULL就能区别出是否为线程了
     virtual_addr userprog_vaddr; //用户进程的虚拟地址
     mem_block_desc u_block_desc[DESC_CNT];  //用户进程内存块描述符
 
-    /*栈的边界标记,用于检测栈是否溢出*/
+    /*  栈的边界标记,用于检测栈是否溢出(魔数)  */
     uint32_t stack_magic;
 } task_struct;
 

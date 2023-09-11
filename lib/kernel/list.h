@@ -17,7 +17,7 @@ typedef struct list_elem{
     struct list_elem* next; //后继节点
 } list_elem;
 
-/*  队列  */
+/*  双向链表队列  */
 typedef struct{
     /*
       head为队首,位置固定不变,第一个元素为head.next;

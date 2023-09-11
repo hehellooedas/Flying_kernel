@@ -240,7 +240,6 @@ enter_kernel:
 
 ;将kernel.bin中的segment拷贝到编译的地址
 ;通过ELF_header找到程序头表的地址,然后遍历所有程序头,一个程序头代表一个段(程序头的目的就是描述这些段)
-;
 kernel_init:
     xor eax,eax
     xor ebx,ebx   ;ebx记录程序头表地址
@@ -292,7 +291,7 @@ mem_cpy:
 
 
 
-
+;分页机制
 setup_page:        ;设置页目录表和页表
     mov ecx,4096   ;为循环作准备
     mov esi,0

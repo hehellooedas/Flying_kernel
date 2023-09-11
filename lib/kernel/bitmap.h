@@ -2,9 +2,9 @@
 #define __LIB_KERNEL_BITMAP_H
 
 
-#include "global.h"
+#include <global.h>
 
-#define BITMAP_MASK   1   //用于位移比较和修改值
+#define BITMAP_MASK   1   //bitmap标记位,用于位移比较和修改值
 
 /*bitmap是一种可以用于管理资源的结构*/
 typedef struct

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <console.h>
 #include <debug.h>
+#include <stdio-kernel.h>
 
 
 
@@ -16,7 +17,7 @@ extern list thread_ready_list;  //就绪队列
 extern list thread_all_list;    //所有任务队列
 
 
-/*  构建用户进程初始上下文  */
+/*  构建用户进程初始上下文(以线程为跳板通过中断栈进入进程)  */
 void start_process(void* filename_){
     void* function = filename_;  //程序的名称
     task_struct* cur = running_thread();
@@ -29,14 +30,15 @@ void start_process(void* filename_){
     proc_stack->ds = proc_stack->es = proc_stack->fs = SELECTOR_U_DATA; //用户数据段
     proc_stack->eip = function;  //待执行的用户程序地址
     proc_stack->cs = SELECTOR_U_CODE; // 用户代码段
-    proc_stack->eflags = (EFLAGS_IOPL_0 | EFLAGS_MBS | EFLAGS_IF_1); //用户PSW
+    proc_stack->eflags = (EFLAGS_IOPL_3 | EFLAGS_MBS | EFLAGS_IF_1); //用户PSW
     /*  确定栈的物理地址,3级特权级栈安装在用户自己的页表中  */
     proc_stack->esp = (void*)((uint32_t)get_a_page(PF_USER, USER_STACK3_VADDR) + PG_SIZE);
     proc_stack->ss = SELECTOR_U_STACK; //用户栈段
-    /*  调用intr_exit进行特权级转换,进入特权级3(拿中断当跳板)  */
+    /*  调用intr_exit进行特权级转换,进入特权级3  */
     asm volatile ("movl %0,%%esp;jmp intr_exit" \
                     ::"g"(proc_stack):"memory");
 }
+
 
 
 /*  激活p_thread的页表  */
@@ -55,6 +57,7 @@ void page_dir_activate(task_struct* p_thread){
 }
 
 
+
 /*  激活线程或进程的页表,更新tss中的esp0为进程的特权及0的栈  */
 void process_active(task_struct* p_thread){
     ASSERT(p_thread != NULL);
@@ -65,6 +68,7 @@ void process_active(task_struct* p_thread){
         update_tss_esp0(p_thread);
     }
 }
+
 
 
 /*
@@ -110,11 +114,14 @@ void create_user_vaddr_bitmap(task_struct* user_prog){
 }
 
 
+
 /*  创建用户进程  */
 void process_execute(void* filename,char* name){
     /*  由内核来维护进程信息  */
     task_struct* thread = get_kernel_pages(1);  //pcb信息在内核中
     init_thread(thread, name, default_process_priority);
+    /*  上面两步和创建线程步骤相同  */
+
     create_user_vaddr_bitmap(thread);
     thread_create(thread, start_process,filename);
     thread->pgdir = create_page_dir();

@@ -3,14 +3,16 @@
 #include <string.h>
 #include <debug.h>
 #include <sync.h>
+#include <stdio-kernel.h>
 
 
+/*  内存池结构  */
 typedef struct
 {
-    bitmap pool_bitmap;      //内存池位图 用于管理该内存池(掌握页是否分配的情况)
+    bitmap   pool_bitmap;    //内存池位图 用于管理该内存池(掌握页是否分配的情况)
     uint32_t phy_addr_start; //本内存池管理的物理内存地址的起始地址
     uint32_t pool_size;      //本内存池管理的字节容量
-    lock lock;               //申请内存时是互斥的
+    lock     lock;           //申请内存时是互斥的
 }pool;
 
 pool kernel_pool,user_pool;  //内核内存池与用户内存池
@@ -43,17 +45,17 @@ mem_block_desc k_block_descs[DESC_CNT];
   因为0xc009f000是内核主线程栈顶,0xc009e000是内核主线程的pcb
   一个页框大小的位图可表示128MB的内存,位图位置安排在地址0xc009a00
   这样本系统最大支持4个页框的位图,即512MB
-  0xc009a000~0xc009e000是内存位图的地址;0xc009e000~0xc009f000是主线程的PCB
+  0xc009a000~0xc009e000是内存位图的地址(4KB)
+  0xc009e000~0xc009f000是主线程的PCB
 */
 #define MEM_BITMAP_BASE  0xc009a000   //内存位图的基址
 
 
 /*
     0xc0000000是3GB 虚拟地址的开始地址
-    0xc0000000~0xc00100000是内核空间低端的1MB,映射物理地址0~1MB
+    0xc0000000~0xc0100000是内核空间低端的1MB,映射物理地址0~1MB
     0x100000指的是绕过了低端的1MB空间,使虚拟地址在逻辑上连续
-    表示内核所使用的堆空间的起始虚拟地址
-    因为内核也需要动态申请空间，动态申请空间要去堆里找
+    表示内核所使用的堆空间的起始虚拟地址,内核动态申请空间要去堆里找
 */
 #define K_HEAP_STACK    0xc0100000   //设置堆起始地址用来进行动态分配
 
@@ -67,16 +69,19 @@ pool kernel_pool,user_pool;   //内核内存池和用户内存池
 virtual_addr kernel_vaddr;    //内核进程的虚拟地址(共4GB)
 
 
+
 /*初始化内存池*/
 static void mem_pool_init(uint32_t all_mem){
     put_str("   mem_pool_init start\n");
 
     /*
-    页目录表占用一个页框 + 第0和第768页目录表项指向1个页框 + 第369～1022个页目录表项指向254个页框
+    页目录表占用一个页框 + 
+    第0和第768页目录表项指向1个页框(同一个) +
+    第369～1022个页目录表项指向254个页框
     */
     uint32_t page_table_size = PG_SIZE * 256;  //预留出1MB空间(放页表和页目录表)
 
-    /*低端1MB内存默认全部已使用,这部分内存也不需要被内存管理系统管理*/
+    /*  低端1MB内存默认全部已使用,这部分内存也不需要被内存管理系统管理  */
     uint32_t used_mem = page_table_size + 0x100000;
     uint32_t free_mem = all_mem - used_mem;       //剩余的内存容量
     uint16_t all_free_pages = free_mem / PG_SIZE; //总共还剩下的页数
@@ -89,26 +94,34 @@ static void mem_pool_init(uint32_t all_mem){
     uint32_t kbm_length = kernel_free_pages / 8; //内核内存池位图的字节长度
     uint32_t ubm_length = user_free_pages / 8;   //用户内存池位图的字节长度
 
-    /*内存池的起始地址,前面的内存归用户,后面的内存归内核*/
+    /*  内存池的起始物理地址,前面的内存归用户,后面的内存归内核  */
     uint32_t kp_start = used_mem;
     uint32_t up_start = used_mem + kernel_free_pages * PG_SIZE;
 
+
     /*把内核与用户的内存池的信息给写进去*/
-    // 物理地址的起始地址
-    kernel_pool.phy_addr_start = kp_start; //可使用内存的起始地址
+    /*  可使用内存的起始物理地址  */
+    kernel_pool.phy_addr_start = kp_start;
     user_pool.phy_addr_start = up_start;  
 
-    //内存池能管理的内存的大小
+    /*  内存池能管理的内存的大小  */
     kernel_pool.pool_size = kernel_free_pages * PG_SIZE;
     user_pool.pool_size = user_free_pages * PG_SIZE;
 
-    //位图长度
+    /*  位图长度  */
     kernel_pool.pool_bitmap.btmp_bytes_len = kbm_length;
     user_pool.pool_bitmap.btmp_bytes_len = ubm_length;
 
-    /*0xc009a000~0xc009e000这一部分虚拟地址专门用来放页表,它对应物理地址0x9a000~0x9e000*/
-    kernel_pool.pool_bitmap.bits = (void*)MEM_BITMAP_BASE; //内核内存池的起始位置(指针代表地址)
-    user_pool.pool_bitmap.bits = (void*)(MEM_BITMAP_BASE + kbm_length); //用户内存池的起始位置
+
+    /*
+      0xc009a000~0xc009e000这一部分虚拟地址专门用来放页表
+      它对应物理地址0x9a000~0x9e000;自从开启页表后必须使用虚拟地址访问内存
+    */
+    /*  内核内存池的起始位置  */
+    kernel_pool.pool_bitmap.bits = (void*)MEM_BITMAP_BASE;
+    /*  用户内存池的起始位置  */
+    user_pool.pool_bitmap.bits = (void*)(MEM_BITMAP_BASE + kbm_length);
+
 
 
     /*************输出内存池的信息***************/
@@ -124,7 +137,7 @@ static void mem_pool_init(uint32_t all_mem){
     put_int(user_pool.phy_addr_start);
     put_char('\n');
 
-    /*将位图置0,位图的基地址和大小前面已经确定*/
+    /*  将位图置0,位图的基地址和大小前面已经确定  */
     bitmap_init(&kernel_pool.pool_bitmap);
     bitmap_init(&user_pool.pool_bitmap);
 
@@ -225,6 +238,7 @@ static void* palloc(pool* m_pool){
 }
 
 
+
 /*在页表中添加虚拟地址(_vaddr)到物理地址(_page_phyvaddr)的映射*/
 static void page_table_add(void* _vaddr,void* _page_phyaddr){
     uint32_t vaddr = (uint32_t)_vaddr,page_phyaddr = (uint32_t)_page_phyaddr;
@@ -271,6 +285,7 @@ static void page_table_add(void* _vaddr,void* _page_phyaddr){
         *pte = (page_phyaddr | PG_US_U | PG_RW_W | PG_P_1);
     }
 }
+
 
 
 /*
@@ -320,11 +335,12 @@ void* get_user_pages(uint32_t pg_cnt){
 }
 
 
-/*将地址vaddr和pf池中的物理地址关联,仅支持一页空间分配
+/*
+  将地址vaddr和pf池中的物理地址关联,仅支持一页空间分配
   该函数与get_kernel_pages and get_user_pages的区别是可以指定虚拟地址
 */
 void* get_a_page(pool_flags pf,uint32_t vaddr){
-    pool* mem_pool = (pf & PF_KERNEL)? &kernel_pool:&user_pool;
+    pool* mem_pool = (pf == PF_KERNEL)? &kernel_pool:&user_pool;
     lock_acquire(&mem_pool->lock);
 
     /*先将虚拟地址对应的位图置1*/
@@ -334,13 +350,13 @@ void* get_a_page(pool_flags pf,uint32_t vaddr){
     /*若当前是用户进程申请用户内存,就修改用户自己的虚拟地址位图
       因为虚拟地址已经自己指定了,所以只需要修改对应的虚拟地址位图就好了
     */
-    if(cur->pgdir != NULL && pf== PF_USER){
+    if(cur->pgdir != NULL && pf == PF_USER){
         bit_idx = (vaddr - cur->userprog_vaddr.vaddr_start) / PG_SIZE;
         ASSERT(bit_idx > 0);
         bitmap_set(&cur->userprog_vaddr.vaddr_bitmap, bit_idx, 1);
 
     }else if(cur->pgdir == NULL && pf == PF_KERNEL){
-    /*若是内核线程申请内核内存,就修改kernel_vaddr*/
+        /*  若是内核线程申请内核内存,就修改kernel_vaddr  */
         bit_idx = (vaddr - kernel_vaddr.vaddr_start) / PG_SIZE;
         ASSERT(bit_idx > 0);
         bitmap_set(&kernel_vaddr.vaddr_bitmap, bit_idx, 1);

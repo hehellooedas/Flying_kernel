@@ -18,12 +18,12 @@ section .text   ;以下代码放在代码段
 intr%1entry:    ;第%1个中断的入口
     %2          ;压入错误码或者0,把第二个输入的参数搬到这里来
 
-    ;保存环境
+    ;保存环境,越先push越在栈顶
     push ds
     push es
     push fs
     push gs
-    pushad
+    pushad      ;eax，ecx，edx，ebx，esp、ebp，esi，edi
     
 
     mov al,0x20  ;发送中断结束命令

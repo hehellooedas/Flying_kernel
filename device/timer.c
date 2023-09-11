@@ -53,15 +53,23 @@ static void frequence_set(uint8_t counter_port, \
 
 
 /*  时钟的中断处理函数,每次产生始终中断都会调用该函数;对当前线程的运行情况进行记录
-    调用中断处理函数时原执行函数会暂停;如果没轮到切换,那就返回去继续执行原函数;如果轮到切换了就调用schedule()
+    调用中断处理函数时原执行函数会暂停;
+    如果没轮到切换,那就返回去继续执行原函数;如果轮到切换了就调用schedule()
 */
 static void intr_timer_handler(void){
-    task_struct* cur_thread = running_thread();               //获取当前线程
-    ASSERT(cur_thread->stack_magic == 0x19870916);            //创建线程时设定的魔数
-    cur_thread->elapsed_ticks++;                              //记录此线程占用CPU的时间
-    ticks++;                                                  //总共产生时钟中断的次数
-    if(cur_thread->ticks == 0) schedule();                    //减到0时切换任务
-    else cur_thread->ticks--;                                 //当前线程的时间片-1
+    task_struct* cur_thread = running_thread();      //获取当前执行的任务
+    ASSERT(cur_thread->stack_magic == 0x19870916);   //创建线程时设定的魔数
+    cur_thread->elapsed_ticks++;                     //记录此线程占用CPU的时间
+    ticks++;                                         //总共产生时钟中断的次数
+
+    /* 
+      减到0时切换任务 但是schedule()是一去不复返的
+      在触发时钟中断时 intr%1entry 会保存当前任务的环境 避免回不去
+      在时钟中断函数执行完后原本应该执行jmp intr_exit恢复环境
+      但是如果调用了schedule()就会从当前任务跳转到next任务
+    */
+    if(cur_thread->ticks == 0) schedule();
+    else cur_thread->ticks--;     //当前线程的时间片-1
 }
 
 
@@ -69,11 +77,13 @@ static void intr_timer_handler(void){
 /*  时钟初始化函数  */
 void timer_init(void){
     put_str("timer_init start\n");
+
     frequence_set(COUNTER0_PORT,COUNTER_NO, \
                   READ_WRITE_LATCH,COUNTER_MODE, \
                   COUNTER0_VALUE);
     /*  注册时钟中断处理函数  */
     register_handler(0x20, intr_timer_handler);
+
     put_str("timer_init done\n");
 }
 

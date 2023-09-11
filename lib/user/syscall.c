@@ -78,6 +78,6 @@ void* malloc(uint32_t size){
     return (void*)_syscall1(SYS_MALLOC, size);
 }
 
-void* free(void* ptr){
+void free(void* ptr){
     _syscall1(SYS_FREE,ptr);
 }

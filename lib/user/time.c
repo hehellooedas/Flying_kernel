@@ -1,7 +1,7 @@
-#include "time.h"
-#include "debug.h"
-#include "stdio.h"
-#include "print.h"
+#include <time.h>
+#include <debug.h>
+#include <stdio.h>
+#include <print.h>
 
 
 

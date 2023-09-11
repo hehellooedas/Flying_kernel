@@ -1,22 +1,22 @@
 #ifndef __KERNEL_MEMORY_H
 #define __KERNEL_MEMORY_H
 
-#include "global.h"
-#include "bitmap.h"
-#include "list.h"
+#include <global.h>
+#include <bitmap.h>
+#include <list.h>
 
 
-#define PG_P_1  1    //页表或页目录表存在(1b)
-#define PG_P_0  0    //页表或页目录表不存在,需要建立映射
-#define PG_RW_R 0    //可读可执行，但不可写
-#define PG_RW_W 2    //可读可执行，并可写(10b)
-#define PG_US_S 0    //系统级,3特权级不能访问该页的内存
-#define PG_US_U 4    //用户级，任何特权级都能访问该页内存(100b)
+#define PG_P_1   1    //页表或页目录表存在(1b)
+#define PG_P_0   0    //页表或页目录表不存在,需要建立映射
+#define PG_RW_R  0    //可读可执行，但不可写
+#define PG_RW_W  2    //可读可执行，并可写(10b)
+#define PG_US_S  0    //系统级,3特权级不能访问该页的内存
+#define PG_US_U  4    //用户级,任何特权级都能访问该页内存(100b)
 
 
 typedef enum{
     PF_KERNEL = 1,   //内核内存池
-    PF_USER          //用户内存池
+    PF_USER = 2      //用户内存池
 }pool_flags;         //池标记,区分两个内存池
 
 

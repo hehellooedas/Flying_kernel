@@ -220,8 +220,9 @@ void intr_hd_handler(uint8_t irq_no){  //硬盘准备好了触发中断
     ASSERT(channel->irq_no == irq_no);
     if(channel->expecting_intr){
         channel->expecting_intr = false;
-        sema_up(&channel->disk_done); //唤醒被阻塞的线程
-
+        /*  唤醒被阻塞的线程,线程被唤醒后会继续接下来的操作  */
+        sema_up(&channel->disk_done);
+        
         /*  读取status寄存器使硬盘认为已经处理过了  */
         inb(reg_status(channel));
     }
@@ -368,13 +369,13 @@ void ide_init(void){
         lock_init(&channel->lock);
 
         /*
-          信号量初始化为0 (一被占用就阻塞自己)
+          信号量初始化为0 (一被占用就阻塞自己,等待中断才解除阻塞)
         */
         sema_init(&channel->disk_done, 0);
 
                 
         /*  分别获取两个硬盘的参数及分区信息  */
-        while (dev_no < 2) {
+        while (dev_no < 1) {
             disk* hd = &channel->devices[dev_no];
             hd->my_channel = channel;
             hd->dev_no = dev_no;
