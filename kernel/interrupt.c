@@ -187,14 +187,15 @@ static void exception_init(void){
 
 void idt_init(void){
     put_str("idt_init start\n");
-    idt_desc_init();                    //初始化中断描述符表
-    exception_init();                   //初始化通用中断处理函数
-    pic_init();                         //初始化8259A
+
+    idt_desc_init();        //初始化中断描述符表
+    exception_init();       //初始化通用中断处理函数
+    pic_init();             //初始化8259A
+
     put_str("idt_init done\n");
 
     /*  
-      加载IDT
-      前16位是界限。后32位是基地址
+      加载IDT:前16位是界限。后32位是基地址
     */
     uint64_t idt_operand = ((sizeof(idt) - 1) | ((uint64_t)(uint32_t)idt << 16));
     asm volatile ("lidt %0"::"m"(idt_operand));

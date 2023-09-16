@@ -47,7 +47,7 @@ void page_dir_activate(task_struct* p_thread){
       当进程A切换到进程B的时候,页表也要随之切换,这样才能保证地址空间的独立性
       无论是进程还是线程都要切换页表,否则线程就有可能使用进程的页表了
     */
-    /*若为内核线程,则需要重新填充页表为0x100000*/
+    /*  若为内核线程,则需要重新填充页表为0x100000  */
     uint32_t pagedir_phy_addr = 0x100000;
     if(p_thread->pgdir != NULL){ //用户进程的情况
         pagedir_phy_addr = addr_v2p((uint32_t)p_thread->pgdir);
@@ -58,7 +58,7 @@ void page_dir_activate(task_struct* p_thread){
 
 
 
-/*  激活线程或进程的页表,更新tss中的esp0为进程的特权及0的栈  */
+/*  激活线程或进程的页表,更新tss中的esp0为进程的特权级的栈  */
 void process_active(task_struct* p_thread){
     ASSERT(p_thread != NULL);
 

@@ -17,12 +17,12 @@ void sema_init(semaphore* psema,uint8_t value){
 void lock_init(lock* plock){
     plock->holder = NULL;
     plock->holder_repeat_nr = 0;
-    /*信号量初始值为1,表明资源只能让一个任务独享*/
+    /*  信号量初始值为1,表明资源只能让一个任务独享  */
     sema_init(&plock->semaphore, 1);
 }
 
 
-/*  信号量down操作  */
+/*  信号量down操作(资源数-1)  */
 void sema_down(semaphore* psema){
     /*  关闭中断以保证原子操作  */
     intr_status old_status = intr_disable();
@@ -37,7 +37,7 @@ void sema_down(semaphore* psema){
        thread_block(TASK_BLOCKED);  //阻塞当前线程,直到被唤醒(被阻塞了就不会一直while了)
     }
     /*若value=1或被唤醒后,会执行下面的代码,也就是获得了锁;被唤醒前下面的代码不会被执行*/
-    --psema->value;
+    psema->value--;
     ASSERT(psema->value == 0);
     intr_set_status(old_status);
 }
@@ -53,10 +53,12 @@ void sema_up(semaphore* psema){
         task_struct* thread_blocked = elem2entry(task_struct,general_tag,list_pop(&psema->waiters));
         thread_unblock(thread_blocked);
     }
-    ++psema->value; //如果该信号量里所有被阻塞的线程都解除阻塞了,说明该信号量保管的资源已经没人要了
+    ++psema->value; //资源被释放,可占有该资源的任务数+1
     ASSERT(psema->value == 1);
     intr_set_status(old_status);
 }
+/*  信号量操作都是原子操作不会被其他中断给打断  */
+
 
 
 /*  获取锁plock  */

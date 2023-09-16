@@ -7,9 +7,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <debug.h>
-#include <timer.h>
 #include <string.h>
-
+#include <math.h>
 
 
 
@@ -19,6 +18,7 @@ void u_prog_a(void);
 void u_prog_b(void);
 
 
+
 int __attribute__((noreturn)) main(void)
 {
     put_str("I am kernel\n");
@@ -26,8 +26,8 @@ int __attribute__((noreturn)) main(void)
     /*此时中断并未打开，先把任务放到队列里*/
     
     //process_execute(u_prog_a, "user_prog_a");
-    process_execute(u_prog_b, "user_prog_b");
-    thread_start("memory_thread", 31, memory_thread,"memory_thread");
+    //process_execute(u_prog_b, "user_prog_b");
+    //thread_start("memory_thread", 31, memory_thread,"memory_thread");
     thread_start("free_thread", 31, free_thread, "free_thread");
 
 
@@ -35,11 +35,12 @@ int __attribute__((noreturn)) main(void)
     //put_str_color("Hello FlyingOS\n", dark_purple);
 
     intr_enable(); //打开中断
-    thread_yield();
+    //thread_yield();
     struct tm now = getTime();
-    
     printTime(now);
-    while(1);
+    while(1){
+        console_put_str("I am main\n");
+    }
     //return 0;
 }
 
@@ -59,14 +60,14 @@ void memory_thread(void* arg){
     sys_free(addr2);
     sys_free(addr3);
     put_char('\n');
+    thread_block(TASK_BLOCKED);
     while(1);
 }
 
 void free_thread(void* arg){
-    for(int i=0;i<5;i++){
-        printf("Hello World\n");
+    while(1){
+        console_put_str("I am free_thread\n");
     }
-    while(1);
 }
 
 void u_prog_a(void){
@@ -84,6 +85,7 @@ void u_prog_a(void){
 
 void u_prog_b(void){
     printf("Hello\n");
+    
     while(1);
 }
 

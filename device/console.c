@@ -11,13 +11,13 @@ void console_init(void){
 
 
 /*  获取终端  */
-inline void console_acquire(void){
+void console_acquire(void){
     lock_acquire(&console_lock);
 }
 
 
 /*  释放终端  */
-inline void console_release(void){
+void console_release(void){
     lock_release(&console_lock);
 }
 

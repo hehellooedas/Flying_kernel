@@ -201,7 +201,7 @@ static void* vaddr_get(pool_flags pf,uint32_t pg_cnt){
 }
 
 
-/*得到虚拟地址对应的pte指针,以访问页表*/
+/*  得到虚拟地址对应的pte指针,以访问页表  */
 uint32_t* pte_ptr(uint32_t vaddr){  //0~4KB
     /*
       1、 0xffc00000是高10位 / 通过页目录表最后一项访问页目录表第一项
@@ -212,7 +212,7 @@ uint32_t* pte_ptr(uint32_t vaddr){  //0~4KB
     return (uint32_t*)(0xffc00000 + ((vaddr & 0xffc00000) >> 10) + PTE_IDX(vaddr) * 4);
 }
 
-/*得到虚拟地址对应的pde指针,以访问页目录表*/
+/*  得到虚拟地址对应的pde指针,以访问页目录表  */
 uint32_t* pde_ptr(uint32_t vaddr){   //0~4KB
     /*
       1、0xffc是高10位 / 通过页目录表最后一项访问页目录表第一项

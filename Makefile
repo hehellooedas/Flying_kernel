@@ -1,6 +1,6 @@
 BUILD_DIR = ./build
 ENTRY_POINT = 0xc0001500
-BOCHS = ./tools/bochs
+BOCHS = ./tools/bochs2.6.11
 QEMU = qemu-system-i386
 AS = nasm
 AR = tar
@@ -22,7 +22,7 @@ CFLASGS = -m32 -march=i586 -finline-functions -fno-pic  -Wall $(LIB) -c \
 LDFLASG = -m elf_i386  -Ttext 0xc0001500 -e main \
 		  -o $(BUILD_DIR)/kernel.bin -Map $(BUILD_DIR)/kernel.map
 
-OBJS = $(BUILD_DIR)/main.o      $(BUILD_DIR)/init.o         $(BUILD_DIR)/interrupt.o \
+OBJS = $(BUILD_DIR)/main.o     $(BUILD_DIR)/init.o         $(BUILD_DIR)/interrupt.o \
 	   $(BUILD_DIR)/timer.o    $(BUILD_DIR)/kernel.o       $(BUILD_DIR)/print.o \
 	   $(BUILD_DIR)/switch.o   $(BUILD_DIR)/debug.o        $(BUILD_DIR)/string.o \
 	   $(BUILD_DIR)/memory.o   $(BUILD_DIR)/bitmap.o       $(BUILD_DIR)/thread.o \
@@ -30,7 +30,7 @@ OBJS = $(BUILD_DIR)/main.o      $(BUILD_DIR)/init.o         $(BUILD_DIR)/interru
 	   $(BUILD_DIR)/keyboard.o $(BUILD_DIR)/ioqueue.o      $(BUILD_DIR)/tss.o \
 	   $(BUILD_DIR)/process.o  $(BUILD_DIR)/syscall-init.o $(BUILD_DIR)/syscall.o \
 	   $(BUILD_DIR)/stdio.o    $(BUILD_DIR)/time.o         $(BUILD_DIR)/stdio-kernel.o \
-	   $(BUILD_DIR)/ide.o 
+	   $(BUILD_DIR)/ide.o 	   $(BUILD_DIR)/math.o
 		   
 		
 
@@ -122,6 +122,8 @@ $(BUILD_DIR)/ide.o:device/ide.c device/ide.h lib/stdint.h thread/thread.h \
 		thread/sync.h kernel/interrupt.h kernel/debug.h lib/kernel/io.h
 	$(CC) $(CFLASGS) $< -o $@
 
+$(BUILD_DIR)/math.o:lib/math.c lib/math.h
+	$(CC) $(CFLASGS) $< -o $@
 
 
 

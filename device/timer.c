@@ -57,10 +57,10 @@ static void frequence_set(uint8_t counter_port, \
     如果没轮到切换,那就返回去继续执行原函数;如果轮到切换了就调用schedule()
 */
 static void intr_timer_handler(void){
-    task_struct* cur_thread = running_thread();      //获取当前执行的任务
-    ASSERT(cur_thread->stack_magic == 0x19870916);   //创建线程时设定的魔数
-    cur_thread->elapsed_ticks++;                     //记录此线程占用CPU的时间
-    ticks++;                                         //总共产生时钟中断的次数
+    task_struct* cur_thread = running_thread();     //获取当前执行的任务
+    ASSERT(cur_thread->stack_magic == 0x19870916);  //创建线程时设定的魔数
+    cur_thread->elapsed_ticks++;                    //记录此线程占用CPU的时间
+    ticks++;                                        //总共产生时钟中断的次数
 
     /* 
       减到0时切换任务 但是schedule()是一去不复返的
@@ -97,7 +97,7 @@ static void ticks_to_sleep(uint32_t sleep_ticks){
 }
 
 
-/*以毫秒为单位的sleep*/
+/*  以毫秒为单位的sleep  */
 void mtime_sleep(uint32_t m_seconds){
     uint32_t sleep_ticks = DIV_ROUND_UP(m_seconds, mil_seconds_per_intr);
     ASSERT(sleep_ticks > 0);

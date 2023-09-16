@@ -238,7 +238,7 @@ static void identify_disk(disk* hd){
 
     /*  每次进行硬盘操作前都阻塞一下自己,以便提高CPU运行效率   */
     sema_down(&hd->my_channel->disk_done);
-
+    
     if(!busy_wait(hd)){ //超时检测
         char error[64];
         sprintf(error, "%s identify failed !\n",hd->name);
@@ -375,7 +375,7 @@ void ide_init(void){
 
                 
         /*  分别获取两个硬盘的参数及分区信息  */
-        while (dev_no < 1) {
+        while (dev_no < 2) {
             disk* hd = &channel->devices[dev_no];
             hd->my_channel = channel;
             hd->dev_no = dev_no;

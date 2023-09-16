@@ -4,7 +4,6 @@
 #include <print.h>
 #include <debug.h>
 #include <string.h>
-#include <stdio-kernel.h>
 
 
 
@@ -18,6 +17,7 @@ list_elem* thread_tag; //用于保存队列中所有结点
 
 task_struct* main_thread;  //主线程PCB
 task_struct* idle_thread;  //idle线程,全局变量,通过这个pcb来设置阻塞和唤醒idle线程
+
 
 
 /*  分配pid  */
@@ -161,11 +161,13 @@ void schedule(void){
           若当前线程处于非运行状态,则不需要放置到thread_ready_list的末尾了
           比如yield主动交出运行权,此时已经加入到队列末尾了,不用再加入一次
           被信号量阻塞的线程会暂时由信号量队列保管,解除阻塞后push到等待队列
+          或者像idle线程,本身有一个全局变量保管其pcb,没有加入队列里也能访问到它
         */
         pass;
     }
     /*  如果就绪队列是空的,就唤醒idle线程(防止没任务可切换)  */
     if(list_empty(&thread_ready_list)){
+        printk("idle thread has unblocked!\n");
         thread_unblock(idle_thread);
     }
     thread_tag = NULL; //thread_tag先清空
@@ -177,11 +179,15 @@ void schedule(void){
     task_struct* next = elem2entry(task_struct,general_tag,thread_tag);
     next->status = TASK_RUNNING;
     process_active(next); //激活任务页
+    printk("%s->%s\n",cur->name,next->name);
     switch_to(cur, next); //从当前任务跳转到下一个任务
     /*
-    schedule()并不会返回到执行该函数后的地址而是直接跳转到下一个任务了
     上下文保护的第一部分由kernel.S中的intr%1entry完成
     上下文保护的第二部分由switch.S完成
+    如果下一个任务是首次被调度到,则跳转到kernel_thread
+    如果不是第一次被调度到,则会通过栈中保存的eip返回到这里
+    再返回到调用了schedule()的时钟中断处理函数,再返回到时钟中断通过intr_exit
+    最后返回到该任务暂停的地址继续执行
     */
 }
 
@@ -204,11 +210,12 @@ void thread_yield(void){
 
 /*  当前线程将自己阻塞,标志其状态为stat  */
 void thread_block(task_status stat){ //stat的取值为不可运行态
+    intr_status old_status = intr_disable();    //关中断
     /*  把当前线程的状态设置成非运行态  */
     ASSERT((stat == TASK_BLOCKED) || \
            (stat == TASK_WAITING) || \
            (stat == TASK_HANGING));
-    intr_status old_status = intr_disable();    //关中断
+    
     task_struct* cur_thread = running_thread(); //获取当前正在运行的线程
     cur_thread->status = stat; //stat是参数
     schedule();  //把当前任务换下
@@ -240,7 +247,9 @@ void thread_unblock(task_struct* pthread){
 /*  系统空闲时运行的线程  */
 static void idle(void* __attribute__((unused)) args){
     while(1){  //无限循环,保证idle线程一直存在
+        //thread_yield();
         thread_block(TASK_BLOCKED); //阻塞后等待被唤醒
+        
         /*  执行hlt之前必须把中断打开否则就无法退出休眠模式了  */
         asm volatile("sti;hlt": : :"memory");  //被唤醒后才进入休眠状态
     }
@@ -257,7 +266,7 @@ void thread_init(void){
     lock_init(&pid_lock);
     make_main_thread();
     /*  创建idle线程  */
-    idle_thread = thread_start("idle", 10, idle, NULL);
+    //idle_thread = thread_start("idle", 10, idle, NULL);
 
     put_str("thread_init done\n");
 }

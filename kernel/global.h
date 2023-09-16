@@ -1,6 +1,8 @@
 #ifndef __KERNEL_GLOBAL_H
 #define __KERNEL_GLOBAL_H
-#include "stdint.h"
+
+#include <stdint.h>
+#include <math.h>
 
 
 #define pass ((void)0) //占位符
@@ -125,7 +127,6 @@ typedef struct{
 #define EFLAGS_IF_0   0           //if=0 关中断(1 << 9)
 #define EFLAGS_IOPL_3 (3 << 12)   //IOPL3 用户程序在非系统调用下进行IO操作
 #define EFLAGS_IOPL_0 (0 << 12)   //IOPL0 系统调用下进行IO
-#define DIV_ROUND_UP(X,STEP)      ((X + STEP - 1) / (STEP))
 
 
 #endif

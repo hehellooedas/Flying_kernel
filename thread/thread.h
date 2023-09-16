@@ -5,6 +5,7 @@
 #include <list.h>
 #include <interrupt.h>
 #include <memory.h>
+#include <stdio-kernel.h>
 
 
 typedef int16_t pid_t;   //每个任务都有pid,且不可重复
@@ -148,6 +149,30 @@ void thread_init(void);
 void thread_block(task_status stat);
 void thread_unblock(task_struct* pthread);
 void thread_yield(void);
+
+static void __attribute__((always_inline)) get_thread_status(task_struct* pthread){
+    switch (pthread->status) {
+        case TASK_RUNNING:
+            printk("the task is running!\n");
+            break;
+        case TASK_READY:
+            printk("the task is ready!\n");
+            break;
+        case TASK_WAITING:
+            printk("the task is waiting!\n");
+            break;
+        case TASK_BLOCKED:
+            printk("the task has blocked!\n");
+            break;
+        case TASK_HANGING:
+            printk("the task is hanging!\n");
+            break;
+        case TASK_DIED:
+            printk("the task had dead!\n");
+            break;
+    }
+}
+
 
 #endif
 

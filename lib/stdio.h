@@ -1,7 +1,7 @@
 #ifndef __LIB_STDIO_H
 #define __LIB_STDIO_H
 
-#include "global.h"
+#include <global.h>
 
 typedef char* va_list ;  //参数列表(字符指针)
 
