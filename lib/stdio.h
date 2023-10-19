@@ -10,7 +10,7 @@ typedef char* va_list ;  //参数列表(字符指针)
   v:格式化字符串format
   t:可变参数的类型
 */
-#define va_start(ap,v)  ap = (va_list)&v  //ap指向第一个固定参数v
+#define va_start(ap,v)  ap = (va_list)&v  //ap指向第零个固定参数v
 #define va_arg(ap,t)    *((t*)(ap += 4))  //ap指向下一个参数并返回其值,指针占4字节空间
 #define va_end(ap)      ap = NULL         //清除ap,使ap不再指向堆栈
 

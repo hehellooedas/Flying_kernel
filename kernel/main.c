@@ -38,9 +38,7 @@ int __attribute__((noreturn)) main(void)
     //thread_yield();
     struct tm now = getTime();
     printTime(now);
-    while(1){
-        console_put_str("I am main\n");
-    }
+    while(1);
     //return 0;
 }
 
@@ -65,9 +63,7 @@ void memory_thread(void* arg){
 }
 
 void free_thread(void* arg){
-    while(1){
-        console_put_str("I am free_thread\n");
-    }
+    while(1);
 }
 
 void u_prog_a(void){

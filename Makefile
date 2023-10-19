@@ -1,6 +1,6 @@
 BUILD_DIR = ./build
 ENTRY_POINT = 0xc0001500
-BOCHS = ./tools/bochs2.6.11
+BOCHS = ./tools/bochs
 QEMU = qemu-system-i386
 AS = nasm
 AR = tar
